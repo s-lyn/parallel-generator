@@ -12,5 +12,8 @@
   "devDependencies": {
     "assert": "^2.0.0",
     "mocha": "^6.2.0"
+  },
+  "dependencies": {
+    "is-promise": "^2.1.0"
   }
 }
