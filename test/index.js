@@ -41,4 +41,20 @@ describe('parallel()', function () {
     assert.strictEqual(next.value, undefined)
     assert.strictEqual(next.done, true)
   })
+  it('should call ordered', async function () {
+    const tasks = [
+      call(() => new Promise(resolve => setTimeout(() => resolve('One'), 2))),
+      call(() => new Promise(resolve => setTimeout(() => resolve('Two'), 1)))
+    ]
+    const iterator = parallel(tasks)
+    let next = await iterator.next()
+    assert.strictEqual(next.value, 'Two')
+    assert.strictEqual(next.done, false)
+    next = await iterator.next()
+    assert.strictEqual(next.value, 'One')
+    assert.strictEqual(next.done, false)
+    next = await iterator.next()
+    assert.strictEqual(next.value, undefined)
+    assert.strictEqual(next.done, true)
+  })
 })
