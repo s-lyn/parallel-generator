@@ -57,7 +57,7 @@ describe('parallel()', function () {
     assert.strictEqual(next.value, undefined)
     assert.strictEqual(next.done, true)
   })
-  it.only('should support errors', async function () {
+  it('should support errors', async function () {
     const tasks = [
       call(() => { throw new Error('Test error') }),
       call(() => Promise.reject(new Error('Test error2'))),

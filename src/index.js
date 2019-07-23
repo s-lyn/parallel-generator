@@ -1,27 +1,22 @@
 const isPromise = require('is-promise')
 
-function wrapPromise (funcCreator, callIndex) {
-  let func
+async function wrapPromise (funcCreator, callIndex) {
   try {
-    func = funcCreator()
-  } catch (err) {
-    return Promise.resolve({
-      callIndex,
-      error: err
-    })
-  }
-  const promise = isPromise(func)
-    ? func
-    : Promise.resolve(func)
-  return promise
-    .then(data => ({
+    const func = funcCreator()
+    const promise = isPromise(func)
+      ? func
+      : Promise.resolve(func)
+    const data = await promise
+    return {
       callIndex,
       data
-    }))
-    .catch(error => ({
+    }
+  } catch (err) {
+    return {
       callIndex,
-      error
-    }))
+      error: err
+    }
+  }
 }
 
 async function * parallel (calls = []) {
@@ -48,9 +43,6 @@ async function * parallel (calls = []) {
     try {
       const raw = await Promise.race(wrappedPromises)
       const { callIndex, data, error } = raw
-      // console.log('~~ callIndex:', callIndex)
-      // console.log('~~ data:', data)
-      // console.log('~~ error:', error)
       delete callsLeft[callIndex]
       yield error || data
     } catch (err) {
