@@ -1,5 +1,6 @@
 /* global describe, it */
 const assert = require('assert')
+const sinon = require('sinon')
 const { parallel, call } = require('../src/index')
 
 describe('parallel()', function () {
@@ -43,8 +44,8 @@ describe('parallel()', function () {
   })
   it('should call ordered', async function () {
     const tasks = [
-      call(() => new Promise(resolve => setTimeout(() => resolve('One'), 2))),
-      call(() => new Promise(resolve => setTimeout(() => resolve('Two'), 1)))
+      call(() => new Promise(resolve => setTimeout(() => resolve('One'), 10))),
+      call(() => new Promise(resolve => setTimeout(() => resolve('Two'), 0)))
     ]
     const iterator = parallel(tasks)
     let next = await iterator.next()
@@ -78,5 +79,33 @@ describe('parallel()', function () {
     next = await iterator.next()
     assert.strictEqual(next.value, undefined)
     assert.strictEqual(next.done, true)
+  })
+  it('should support repeat calls', async function () {
+    // Create stub
+    const stub = sinon.stub()
+    stub.onCall(0).throws(new Error('Test error'))
+    stub.onCall(1).returns('OK')
+    // Call parallel
+    const iterator = parallel([
+      call(stub).repeat(2)
+    ])
+    let next = await iterator.next()
+    assert.strictEqual(next.value, 'OK')
+    assert.strictEqual(next.done, false)
+    assert.ok(stub.calledTwice)
+  })
+  it('should support repeat calls - #call() options', async function () {
+    // Create stub
+    const stub = sinon.stub()
+    stub.onCall(0).throws(new Error('Test error'))
+    stub.onCall(1).returns('OK')
+    // Call parallel
+    const iterator = parallel([
+      call(stub, { repeat: 2 })
+    ])
+    let next = await iterator.next()
+    assert.strictEqual(next.value, 'OK')
+    assert.strictEqual(next.done, false)
+    assert.ok(stub.calledTwice)
   })
 })
