@@ -57,4 +57,26 @@ describe('parallel()', function () {
     assert.strictEqual(next.value, undefined)
     assert.strictEqual(next.done, true)
   })
+  it.only('should support errors', async function () {
+    const tasks = [
+      call(() => { throw new Error('Test error') }),
+      call(() => Promise.reject(new Error('Test error2'))),
+      call(() => Promise.resolve('Two'))
+    ]
+    const iterator = parallel(tasks)
+    let next = await iterator.next()
+    assert.ok(next.value instanceof Error)
+    assert.strictEqual(next.value.message, 'Test error')
+    assert.strictEqual(next.done, false)
+    next = await iterator.next()
+    assert.ok(next.value instanceof Error)
+    assert.strictEqual(next.value.message, 'Test error2')
+    assert.strictEqual(next.done, false)
+    next = await iterator.next()
+    assert.strictEqual(next.value, 'Two')
+    assert.strictEqual(next.done, false)
+    next = await iterator.next()
+    assert.strictEqual(next.value, undefined)
+    assert.strictEqual(next.done, true)
+  })
 })
