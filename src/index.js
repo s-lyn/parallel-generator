@@ -18,7 +18,7 @@ const isCall = (object) => {
 
 const isGenerator = fn => {
   return typeof fn === 'function' &&
-    fn.constructor.name === 'GeneratorFunction'
+    ['GeneratorFunction', 'AsyncGeneratorFunction'].includes(fn.constructor.name)
 }
 
 async function callToPromise (call, callIndex, iterator) {
