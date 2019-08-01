@@ -91,8 +91,8 @@ describe('all()', function () {
     assert.strictEqual(next.value, undefined)
     assert.strictEqual(next.done, true)
   })
-  it('should support generators', async function () {
-    const callback = (message) => Promise.resolve(message)
+  it('should support sync generators and order', async function () {
+    const callback = (message) => message
     const mockGenerator = function * (...args) {
       for (const arg of args) {
         yield arg
@@ -100,12 +100,13 @@ describe('all()', function () {
     }
     const tasks = [
       call(callback, 'One'),
-      call(mockGenerator, 'Two', 'Three')
+      call(mockGenerator, 'Two', 'Three'),
+      call(callback, 'Four')
     ]
     const responses = []
     for await (const data of all(tasks)) {
       responses.push(data)
     }
-    assert.deepStrictEqual(responses, [ 'One', 'Two', 'Three' ])
+    assert.deepStrictEqual(responses, [ 'One', 'Two', 'Three', 'Four' ])
   })
 })

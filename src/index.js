@@ -21,10 +21,6 @@ const isGenerator = fn => {
     fn.constructor.name === 'GeneratorFunction'
 }
 
-const iteratorToPromise = async function (iterator) {
-  return iterator.next()
-}
-
 async function callToPromise (call, callIndex, iterator) {
   if (!isCall(call)) {
     throw Error(`Param "call" expected to be call() object`)
@@ -36,14 +32,11 @@ async function callToPromise (call, callIndex, iterator) {
   try {
     let result
     if (currentIterator) {
-      result = iteratorToPromise(currentIterator)
+      result = currentIterator.next()
     } else {
       result = fn(...args)
     }
-    const promise = isPromise(result)
-      ? result
-      : Promise.resolve(result)
-    const data = await promise
+    const data = isPromise(result) ? await result : result
     return {
       callIndex,
       data: currentIterator ? data.value : data,
@@ -76,7 +69,8 @@ async function * all (calls = []) {
     }
   }
   // Promise concurrency
-  while (true) {
+  let icc = 0
+  while (++icc < 10) {
     const promises = Object.entries(callsLeft).map(el => el[1].promise)
     if (promises.length === 0) {
       break
