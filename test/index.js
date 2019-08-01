@@ -127,4 +127,37 @@ describe('all()', function () {
     }
     assert.deepStrictEqual(responses, [ 'One', 'Two', 'Three', 'Four-END' ])
   })
+  it('should support generators errors', async function () {
+    const syncGenerator = function * () {
+      yield 'One'
+      throw new Error('Two')
+    }
+    const asyncGenerator = async function * () {
+      await new Promise(resolve => setTimeout(resolve, 10))
+      yield 'Three'
+      await new Promise(resolve => setTimeout(resolve, 10))
+      throw new Error('Four')
+    }
+    const iterator = all([
+      call(syncGenerator),
+      call(asyncGenerator)
+    ])
+    let next = await iterator.next()
+    assert.strictEqual(next.value, 'One')
+    assert.strictEqual(next.done, false)
+    next = await iterator.next()
+    assert.ok(next.value instanceof Error)
+    assert.strictEqual(next.value.message, 'Two')
+    assert.strictEqual(next.done, false)
+    next = await iterator.next()
+    assert.strictEqual(next.value, 'Three')
+    assert.strictEqual(next.done, false)
+    next = await iterator.next()
+    assert.ok(next.value instanceof Error)
+    assert.strictEqual(next.value.message, 'Four')
+    assert.strictEqual(next.done, false)
+    next = await iterator.next()
+    assert.strictEqual(next.value, undefined)
+    assert.strictEqual(next.done, true)
+  })
 })
