@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.org/s-lyn/parallel-generator.svg?branch=master)](https://travis-ci.org/s-lyn/parallel-generator)
 
+Small library like ```js Promise.all()```, but for diferrent objects: generators,
+async generators, synchronous and asynchronous functions. 
 
 ## Install
 
@@ -14,11 +16,24 @@ $ npm i parallel-generator
 ```js
 const { all, call } = require('parallel-generator')
 
-const fn2 = async (message, count) => message.repeat(count)
+const syncFn = (message, count) => message.repeat(count)
+const syncGenerator = function * (...args) {
+  for (const arg of args) {
+    yield arg
+  }
+}
+const asyncFn = (message) => {
+  return new Promise(resolve => setTimeout(() => resolve(message), 10))
+}
+const asyncError = (message) => {
+  return new Promise((resolve, reject) => setTimeout(() => reject(new Error(message)), 10))
+}
 const tasks = [
-  call(() => Promise.resolve('One')),
-  call(fn2, 'Two', 2),
-  call(() => Promise.reject(new Error('Three')))
+  call(syncFn, 'One', 1),
+  call(syncGenerator, 'Two', 'Three'),
+  call(asyncFn, 'Five'),
+  call(syncFn, 'Four', 2),
+  call(asyncError, 'Six')
 ]
 
 async function main () {
