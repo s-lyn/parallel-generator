@@ -1,7 +1,7 @@
 {
   "name": "parallel-generator",
   "version": "1.0.1",
-  "description": "Utils to run tasks parallely",
+  "description": "Utils to run generators parallely",
   "main": "src/index.js",
   "scripts": {
     "test": "mocha"

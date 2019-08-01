@@ -1,21 +1,24 @@
 /* global describe, it */
 const assert = require('assert')
 const sinon = require('sinon')
-const { parallel, call } = require('../src/index')
+const { all, call } = require('../src/index')
 
-describe('parallel()', function () {
-  it('should allow to execute without tasks', async function () {
-    const iterator = parallel([])
+describe('all()', function () {
+  it('should allow to execute without calls', async function () {
+    const iterator = all([])
     const next = await iterator.next()
     assert.strictEqual(next.value, undefined)
     assert.strictEqual(next.done, true)
   })
-  it('should exec sync tasks', async function () {
-    const tasks = [
-      call(() => 'One'),
-      call(() => 'Two')
-    ]
-    const iterator = parallel(tasks)
+  it('should exec sync calls', async function () {
+    // Create stub
+    const stub = sinon.stub()
+    stub.onCall(0).returns('One')
+    stub.onCall(1).returns('Two')
+    const iterator = all([
+      call(stub, 'arg1'),
+      call(stub, 'arg1', 'arg2')
+    ])
     let next = await iterator.next()
     assert.strictEqual(next.value, 'One')
     assert.strictEqual(next.done, false)
@@ -25,13 +28,19 @@ describe('parallel()', function () {
     next = await iterator.next()
     assert.strictEqual(next.value, undefined)
     assert.strictEqual(next.done, true)
+    // Check stub
+    assert.ok(stub.calledTwice)
+    assert.deepStrictEqual(stub.firstCall.args, ['arg1'])
+    assert.deepStrictEqual(stub.secondCall.args, ['arg1', 'arg2'])
   })
   it('should exec async tasks', async function () {
-    const tasks = [
-      call(() => Promise.resolve('One')),
-      call(() => Promise.resolve('Two'))
-    ]
-    const iterator = parallel(tasks)
+    // Create stub
+    const async1 = async function () { return 'One' }
+    const async2 = async function () { return 'Two' }
+    const iterator = all([
+      call(async1),
+      call(async2)
+    ])
     let next = await iterator.next()
     assert.strictEqual(next.value, 'One')
     assert.strictEqual(next.done, false)
@@ -43,11 +52,14 @@ describe('parallel()', function () {
     assert.strictEqual(next.done, true)
   })
   it('should call ordered', async function () {
+    const callback = (data, delay = 0) => {
+      return new Promise(resolve => setTimeout(() => resolve(data), delay))
+    }
     const tasks = [
-      call(() => new Promise(resolve => setTimeout(() => resolve('One'), 10))),
-      call(() => new Promise(resolve => setTimeout(() => resolve('Two'), 0)))
+      call(callback, 'One', 10),
+      call(callback, 'Two', 0)
     ]
-    const iterator = parallel(tasks)
+    const iterator = all(tasks)
     let next = await iterator.next()
     assert.strictEqual(next.value, 'Two')
     assert.strictEqual(next.done, false)
@@ -59,12 +71,11 @@ describe('parallel()', function () {
     assert.strictEqual(next.done, true)
   })
   it('should support errors', async function () {
-    const tasks = [
+    const iterator = all([
       call(() => { throw new Error('Test error') }),
       call(() => Promise.reject(new Error('Test error2'))),
       call(() => Promise.resolve('Two'))
-    ]
-    const iterator = parallel(tasks)
+    ])
     let next = await iterator.next()
     assert.ok(next.value instanceof Error)
     assert.strictEqual(next.value.message, 'Test error')
@@ -79,33 +90,5 @@ describe('parallel()', function () {
     next = await iterator.next()
     assert.strictEqual(next.value, undefined)
     assert.strictEqual(next.done, true)
-  })
-  it('should support repeat calls', async function () {
-    // Create stub
-    const stub = sinon.stub()
-    stub.onCall(0).throws(new Error('Test error'))
-    stub.onCall(1).returns('OK')
-    // Call parallel
-    const iterator = parallel([
-      call(stub).repeat(2)
-    ])
-    let next = await iterator.next()
-    assert.strictEqual(next.value, 'OK')
-    assert.strictEqual(next.done, false)
-    assert.ok(stub.calledTwice)
-  })
-  it('should support repeat calls - #call() options', async function () {
-    // Create stub
-    const stub = sinon.stub()
-    stub.onCall(0).throws(new Error('Test error'))
-    stub.onCall(1).returns('OK')
-    // Call parallel
-    const iterator = parallel([
-      call(stub, { repeat: 2 })
-    ])
-    let next = await iterator.next()
-    assert.strictEqual(next.value, 'OK')
-    assert.strictEqual(next.done, false)
-    assert.ok(stub.calledTwice)
   })
 })

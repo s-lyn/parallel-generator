@@ -1,11 +1,31 @@
 const isPromise = require('is-promise')
 
-async function wrapPromise (funcCreator, callIndex) {
+function call (fn, ...args) {
+  return {
+    CALL: {
+      fn,
+      args
+    }
+  }
+}
+
+const isCall = (object) => {
+  return typeof object === 'object' &&
+    typeof object.CALL === 'object' &&
+    typeof object.CALL.fn === 'function' &&
+    Array.isArray(object.CALL.args)
+}
+
+async function callToPromise (call, callIndex) {
+  if (!isCall(call)) {
+    throw Error(`Param "call" expected to be call() object`)
+  }
+  const { fn, args } = call.CALL
   try {
-    const func = funcCreator()
-    const promise = isPromise(func)
-      ? func
-      : Promise.resolve(func)
+    const result = fn(...args)
+    const promise = isPromise(result)
+      ? result
+      : Promise.resolve(result)
     const data = await promise
     return {
       callIndex,
@@ -19,68 +39,35 @@ async function wrapPromise (funcCreator, callIndex) {
   }
 }
 
-async function * parallel (calls = []) {
+async function * all (calls = []) {
   if (!calls || calls.length === 0) {
     return
   }
   // Calls left
   let callIndex = 0
   const callsLeft = {}
-  for (const { funcCreator, options } of calls) {
-    const repeat = options.repeat > 0 ? parseInt(options.repeat, 10) : 1
-    callsLeft[callIndex] = {
-      funcCreator: funcCreator,
-      options: {
-        repeat,
-        currentRepeat: 1
-      },
-      promise: wrapPromise(funcCreator, callIndex)
+  for (const call of calls) {
+    if (isCall(call)) {
+      callsLeft[callIndex] = {
+        call,
+        promise: callToPromise(call, callIndex)
+      }
+      callIndex++
     }
-    callIndex++
   }
   // Promise concurrency
   while (true) {
-    const wrappedPromises = Object.entries(callsLeft).map(el => el[1].promise)
-    if (wrappedPromises.length === 0) {
+    const promises = Object.entries(callsLeft).map(el => el[1].promise)
+    if (promises.length === 0) {
       break
     }
-    const { callIndex, data, error } = await Promise.race(wrappedPromises)
-    // Repeat feature
-    if (error) {
-      const options = callsLeft[callIndex].options
-      if (options.repeat > options.currentRepeat) {
-        options.currentRepeat++
-        callsLeft[callIndex].promise =
-          wrapPromise(callsLeft[callIndex].funcCreator, callIndex)
-        continue
-      }
-    }
+    const { callIndex, data, error } = await Promise.race(promises)
     delete callsLeft[callIndex]
     yield error || data
   }
 }
 
-class Executable {
-  constructor (funcCreator, { repeat } = {}) {
-    this.funcCreator = funcCreator
-    this.options = {
-      repeat: repeat > 0 ? repeat : 1
-    }
-    return this
-  }
-  repeat (count) {
-    if (count > 0) {
-      this.options.repeat = count
-    }
-    return this
-  }
-}
-
-function call (funcCreator, options = {}) {
-  return new Executable(funcCreator, options)
-}
-
 module.exports = {
-  parallel,
-  call
+  call,
+  all
 }

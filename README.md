@@ -12,16 +12,17 @@ $ npm i parallel-generator
 ## Usage
 
 ```js
-const { parallel, call } = require('parallel-generator')
+const { all, call } = require('parallel-generator')
 
+const fn2 = async (message, count) => message.repeat(count)
 const tasks = [
   call(() => Promise.resolve('One')),
-  call(() => Promise.resolve('Two')),
+  call(fn2, 'Two', 2),
   call(() => Promise.reject(new Error('Three')))
 ]
 
 async function main () {
-  for await (const response of parallel(tasks)) {
+  for await (const response of all(tasks)) {
     if (response instanceof Error) {
       console.error(`Catched error: ${response.message}`)
     } else {
@@ -37,23 +38,22 @@ Console output:
 
 ```text
 One
-Two
+TwoTwo
 Catched error: Three
 ```
 
 
-### call `(funcCreator, options = {})`
+### call `(fn, ...args)`
 
 | Param | Type | Description |
 |-------|------|-------------|
-| funcCreator | {Function}\* | Task constructor - should return new task every call |
-| options | {Object} | Options |
-| options.repeat | {Number} | Number of task repeats on error. Default: 1 |
+| fn | {Function}\* | Function |
+| args | {Array} | List of arguments |
 
 
-### parallel `(tasks = [])`
+### all `(calls = [])`
 
 | Param | Type | Description |
 |-------|------|-------------|
-| tasks | {Array} | List of calls. Use function `call()` to create it |
+| calls | {Array} | List of calls. Use function `call()` to create it |
 
