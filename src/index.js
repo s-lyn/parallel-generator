@@ -16,25 +16,45 @@ const isCall = (object) => {
     Array.isArray(object.CALL.args)
 }
 
-async function callToPromise (call, callIndex) {
+const isGenerator = fn => {
+  return typeof fn === 'function' &&
+    fn.constructor.name === 'GeneratorFunction'
+}
+
+const iteratorToPromise = async function (iterator) {
+  return iterator.next()
+}
+
+async function callToPromise (call, callIndex, iterator) {
   if (!isCall(call)) {
     throw Error(`Param "call" expected to be call() object`)
   }
   const { fn, args } = call.CALL
+  const currentIterator = isGenerator(fn)
+    ? (iterator || fn(...args))
+    : undefined
   try {
-    const result = fn(...args)
+    let result
+    if (currentIterator) {
+      result = iteratorToPromise(currentIterator)
+    } else {
+      result = fn(...args)
+    }
     const promise = isPromise(result)
       ? result
       : Promise.resolve(result)
     const data = await promise
     return {
       callIndex,
-      data
+      data: currentIterator ? data.value : data,
+      iterator: currentIterator,
+      done: currentIterator ? data.done : undefined
     }
   } catch (err) {
     return {
       callIndex,
-      error: err
+      error: err,
+      iterator: currentIterator
     }
   }
 }
@@ -61,9 +81,24 @@ async function * all (calls = []) {
     if (promises.length === 0) {
       break
     }
-    const { callIndex, data, error } = await Promise.race(promises)
-    delete callsLeft[callIndex]
-    yield error || data
+    const { callIndex, data, error, iterator, done } = await Promise.race(promises)
+    if (iterator) {
+      if (done) {
+        delete callsLeft[callIndex]
+      } else {
+        yield error || data
+        // Repeat iterable
+        const call = callsLeft[callIndex].call
+        callsLeft[callIndex] = {
+          call,
+          promise: callToPromise(call, callIndex, iterator),
+          iterator
+        }
+      }
+    } else {
+      delete callsLeft[callIndex]
+      yield error || data
+    }
   }
 }
 
